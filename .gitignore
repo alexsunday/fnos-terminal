@@ -1,0 +1,6 @@
+*.exe
+node_modules/
+dist/
+package/app/bin/
+*.fpk
+.DS_Store

@@ -1,0 +1,14 @@
+appname=terminal
+version=1.0.6
+display_name=终端
+desc=飞牛 fnOS 原生网页终端控制台，支持免密直出当前登录用户 Shell 与 FN Connect 远程访问。
+platform=x86
+desktop_uidir=ui
+desktop_applaunchname=terminal.main
+source=thirdparty
+ctl_stop=true
+os_min_version=1.1.3100
+maintainer=sunday
+maintainer_url=https://github.com/sunday
+distributor=sunday
+distributor_url=https://github.com/sunday

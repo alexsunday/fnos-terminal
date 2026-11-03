@@ -1,0 +1,26 @@
+{
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
+    "vue": "^3.4.38"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.2",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^24.1.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "vitest": "^1.6.0",
+    "vue-tsc": "^2.1.4"
+  },
+  "name": "fnos-terminal-ui",
+  "private": true,
+  "scripts": {
+    "build": "vue-tsc --noEmit \u0026\u0026 vite build",
+    "dev": "vite",
+    "test": "vitest run"
+  },
+  "type": "module",
+  "version": "1.0.6"
+}
