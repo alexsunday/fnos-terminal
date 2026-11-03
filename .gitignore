@@ -4,3 +4,4 @@ dist/
 package/app/bin/
 *.fpk
 .DS_Store
+output

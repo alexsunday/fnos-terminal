@@ -38,8 +38,10 @@ func StartSession(username string, cols, rows uint16) (Session, error) {
 	}
 
 	if targetUser != "root" {
-		// runuser -l simulates a full login, cd-ing into the target user's home directory
-		cmd = exec.Command("runuser", "-l", targetUser, "-c", "exec /bin/bash -l")
+		// runuser -l simulates a full login, cd-ing into the target user's home directory.
+		// Using -s /bin/bash without -c gives bash direct controlling terminal ownership,
+		// avoiding "cannot set terminal process group (-1)" and enabling full job control.
+		cmd = exec.Command("runuser", "-l", targetUser, "-s", "/bin/bash")
 	} else {
 		cmd = exec.Command("/bin/bash", "-l")
 	}

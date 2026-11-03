@@ -15,7 +15,7 @@
         <svg viewBox="0 0 24 24" class="btn-icon">
           <path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
         </svg>
-        <span>重连</span>
+        <span class="btn-text">重连</span>
       </button>
 
       <button
@@ -26,12 +26,26 @@
         <svg viewBox="0 0 24 24" class="btn-icon">
           <path fill="currentColor" d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12z"/>
         </svg>
-        <span>清屏</span>
+        <span class="btn-text">清屏</span>
       </button>
     </div>
 
     <div class="toolbar-section right">
-      <div class="control-group font-controls">
+      <!-- Mobile Bar Toggle Button -->
+      <button
+        class="tool-btn toggle-bar-btn"
+        :class="{ active: isMobileBarVisible }"
+        title="切换虚拟按键辅助栏 (ESC, TAB, CTRL, 方向键)"
+        @click="$emit('toggle-mobile-bar')"
+      >
+        <svg viewBox="0 0 24 24" class="btn-icon">
+          <path fill="currentColor" d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/>
+        </svg>
+        <span class="btn-text mobile-hide">辅助键</span>
+      </button>
+
+      <!-- Font Controls (hidden on narrow screens) -->
+      <div class="control-group font-controls mobile-hide">
         <button
           class="icon-btn"
           title="缩小字体"
@@ -51,22 +65,37 @@
         </button>
       </div>
 
-      <div class="control-group">
-        <select
-          class="theme-select"
-          :value="currentTheme"
+      <!-- Theme Dropdown (Button-based, completely eliminates iOS Form Assistant ^ v buttons) -->
+      <div class="control-group theme-group" ref="themeGroup">
+        <button
+          type="button"
+          class="theme-dropdown-btn"
           title="选择终端主题"
-          @change="onThemeChange"
+          @click.stop="toggleThemeDropdown"
         >
-          <option value="default">Default Dark</option>
-          <option value="dracula">Dracula</option>
-          <option value="monokai">Monokai</option>
-          <option value="solarized-dark">Solarized Dark</option>
-        </select>
+          <span class="theme-name">{{ currentThemeLabel }}</span>
+          <svg viewBox="0 0 24 24" class="dropdown-arrow">
+            <path fill="currentColor" d="M7 10l5 5 5-5z"/>
+          </svg>
+        </button>
+
+        <div v-if="isThemeDropdownOpen" class="theme-dropdown-menu">
+          <button
+            v-for="item in themeList"
+            :key="item.value"
+            type="button"
+            class="theme-item"
+            :class="{ active: currentTheme === item.value }"
+            @click="selectTheme(item.value)"
+          >
+            {{ item.label }}
+          </button>
+        </div>
       </div>
 
+      <!-- Popout to new tab -->
       <button
-        class="icon-btn"
+        class="icon-btn mobile-hide"
         title="在新窗口打开"
         @click="openInNewTab"
       >
@@ -75,6 +104,7 @@
         </svg>
       </button>
 
+      <!-- Fullscreen Toggle -->
       <button
         class="icon-btn"
         :title="isFullscreen ? '退出全屏' : '全屏展示'"
@@ -109,12 +139,17 @@ export default defineComponent({
     currentTheme: {
       type: String as PropType<TerminalTheme>,
       required: true
+    },
+    isMobileBarVisible: {
+      type: Boolean,
+      default: false
     }
   },
-  emits: ['reconnect', 'clear', 'update:fontSize', 'update:currentTheme'],
+  emits: ['reconnect', 'clear', 'update:fontSize', 'update:currentTheme', 'toggle-mobile-bar'],
   data() {
     return {
-      isFullscreen: false
+      isFullscreen: false,
+      isThemeDropdownOpen: false
     };
   },
   computed: {
@@ -131,9 +166,40 @@ export default defineComponent({
         default:
           return '未连接';
       }
+    },
+    themeList(): Array<{ value: TerminalTheme; label: string }> {
+      return [
+        { value: 'default', label: 'Default' },
+        { value: 'dracula', label: 'Dracula' },
+        { value: 'monokai', label: 'Monokai' },
+        { value: 'solarized-dark', label: 'Solarized' }
+      ];
+    },
+    currentThemeLabel(): string {
+      const found = this.themeList.find(t => t.value === this.currentTheme);
+      return found ? found.label : 'Default';
     }
   },
+  mounted() {
+    document.addEventListener('click', this.handleOutsideClick);
+  },
+  beforeUnmount() {
+    document.removeEventListener('click', this.handleOutsideClick);
+  },
   methods: {
+    toggleThemeDropdown(): void {
+      this.isThemeDropdownOpen = !this.isThemeDropdownOpen;
+    },
+    selectTheme(theme: TerminalTheme): void {
+      this.$emit('update:currentTheme', theme);
+      this.isThemeDropdownOpen = false;
+    },
+    handleOutsideClick(event: MouseEvent): void {
+      const themeGroup = this.$refs.themeGroup as HTMLElement;
+      if (themeGroup && !themeGroup.contains(event.target as Node)) {
+        this.isThemeDropdownOpen = false;
+      }
+    },
     decreaseFontSize(): void {
       if (this.fontSize > 12) {
         this.$emit('update:fontSize', this.fontSize - 1);
@@ -142,12 +208,6 @@ export default defineComponent({
     increaseFontSize(): void {
       if (this.fontSize < 24) {
         this.$emit('update:fontSize', this.fontSize + 1);
-      }
-    },
-    onThemeChange(event: Event): void {
-      const target = event.target as HTMLSelectElement;
-      if (target) {
-        this.$emit('update:currentTheme', target.value as TerminalTheme);
       }
     },
     openInNewTab(): void {
@@ -177,18 +237,19 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 38px;
+  height: 40px;
   background-color: #202024;
   border-bottom: 1px solid #2e2e34;
-  padding: 0 12px;
+  padding: 0 10px;
   font-size: 13px;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .toolbar-section {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .status-indicator {
@@ -197,7 +258,7 @@ export default defineComponent({
   gap: 6px;
   font-size: 12px;
   font-weight: 500;
-  padding-right: 8px;
+  padding-right: 6px;
   border-right: 1px solid #323238;
 }
 
@@ -242,9 +303,10 @@ export default defineComponent({
   color: #d4d4d8;
   border: 1px solid transparent;
   border-radius: 4px;
-  padding: 3px 7px;
+  padding: 4px 7px;
   font-size: 12px;
   cursor: pointer;
+  touch-action: manipulation;
   transition: all 0.15s ease;
 }
 
@@ -269,6 +331,11 @@ export default defineComponent({
   background-color: #3f3f46;
 }
 
+.toggle-bar-btn.active {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
 .btn-icon {
   width: 15px;
   height: 15px;
@@ -291,18 +358,100 @@ export default defineComponent({
   text-align: center;
 }
 
-.theme-select {
+.theme-group {
+  position: relative;
+}
+
+.theme-dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   background-color: transparent;
   color: #d4d4d8;
   border: none;
   font-size: 12px;
   padding: 3px 6px;
-  outline: none;
   cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
 }
 
-.theme-select option {
+.theme-dropdown-btn:hover {
+  background-color: #2d2d34;
+  color: #ffffff;
+}
+
+.dropdown-arrow {
+  width: 12px;
+  height: 12px;
+  color: #a1a1aa;
+}
+
+.theme-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
   background-color: #202024;
-  color: #f4f4f5;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 100;
+  min-width: 105px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.theme-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background-color: transparent;
+  color: #d4d4d8;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-item:hover {
+  background-color: #2d2d34;
+  color: #ffffff;
+}
+
+.theme-item.active {
+  background-color: #2563eb;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .mobile-hide {
+    display: none !important;
+  }
+  .terminal-toolbar {
+    padding: 0 6px;
+  }
+  .toolbar-section {
+    gap: 4px;
+  }
+}
+
+@media (max-width: 420px) {
+  .status-text {
+    display: none;
+  }
+  .status-indicator {
+    padding-right: 4px;
+    border-right: none;
+  }
+  .btn-text {
+    display: none;
+  }
 }
 </style>
