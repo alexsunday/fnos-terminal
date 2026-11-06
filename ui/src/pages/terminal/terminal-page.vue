@@ -5,6 +5,7 @@
       backgroundColor: activeThemeColors.background,
       height: pageHeight
     }"
+    @click="onPageClick"
   >
     <terminal-toolbar
       :connection-state="connectionState"
@@ -91,6 +92,8 @@ export default defineComponent({
       pageHeight: '100%',
       isKeyboardOpen: false,
       viewportCleanup: null as (() => void) | null,
+      focusCleanup: null as (() => void) | null,
+      focusTimers: [] as number[],
       config: {
         fontSize: 14,
         theme: 'default' as TerminalTheme,
@@ -115,6 +118,8 @@ export default defineComponent({
     this.connectWebSocket();
     this.initResizeObserver();
     this.initViewportHandler();
+    this.initFocusHandler();
+    this.scheduleAutoFocus();
   },
   beforeUnmount() {
     this.cleanup();
@@ -147,7 +152,12 @@ export default defineComponent({
       term.loadAddon(webLinksAddon);
       term.open(container);
 
+      if (term.textarea) {
+        term.textarea.setAttribute('autofocus', 'true');
+      }
+
       fitAddon.fit();
+      term.focus();
 
       term.onData((data: string) => {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -214,6 +224,7 @@ export default defineComponent({
             this.sendResize(this.term.cols, this.term.rows);
           }
           this.startHeartbeat();
+          this.focusTerminal();
         };
 
         ws.onmessage = (event: MessageEvent) => {
@@ -298,13 +309,80 @@ export default defineComponent({
 
     focusTerminal(): void {
       if (this.term) {
+        try {
+          if (typeof window !== 'undefined' && typeof window.focus === 'function') {
+            window.focus();
+          }
+        } catch {
+          // Ignore environments where window.focus is unsupported or restricted
+        }
         this.term.focus();
+        if (this.term.textarea && document.activeElement !== this.term.textarea) {
+          try {
+            this.term.textarea.focus();
+          } catch {
+            // Ignore environments where textarea focus is restricted
+          }
+        }
         setTimeout(() => {
           if (window.scrollY !== 0) {
             window.scrollTo(0, 0);
           }
         }, 10);
       }
+    },
+
+    scheduleAutoFocus(): void {
+      this.focusTerminal();
+      this.$nextTick(() => {
+        this.focusTerminal();
+      });
+      const t1 = window.setTimeout(() => {
+        this.focusTerminal();
+      }, 50);
+      const t2 = window.setTimeout(() => {
+        this.focusTerminal();
+      }, 200);
+      const t3 = window.setTimeout(() => {
+        this.focusTerminal();
+      }, 500);
+      this.focusTimers.push(t1, t2, t3);
+    },
+
+    initFocusHandler(): void {
+      if (typeof window === 'undefined') return;
+
+      const handleFocus = () => {
+        this.focusTerminal();
+      };
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          this.focusTerminal();
+        }
+      };
+
+      const handleMessage = () => {
+        this.focusTerminal();
+      };
+
+      window.addEventListener('focus', handleFocus);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('message', handleMessage);
+
+      this.focusCleanup = () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('message', handleMessage);
+      };
+    },
+
+    onPageClick(e: MouseEvent): void {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('.terminal-toolbar')) {
+        return;
+      }
+      this.focusTerminal();
     },
 
     initViewportHandler(): void {
@@ -438,6 +516,14 @@ export default defineComponent({
 
     cleanup(): void {
       this.stopHeartbeat();
+      if (this.focusTimers.length > 0) {
+        this.focusTimers.forEach(id => window.clearTimeout(id));
+        this.focusTimers = [];
+      }
+      if (this.focusCleanup) {
+        this.focusCleanup();
+        this.focusCleanup = null;
+      }
       if (this.viewportCleanup) {
         this.viewportCleanup();
         this.viewportCleanup = null;

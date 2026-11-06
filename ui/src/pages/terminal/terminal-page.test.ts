@@ -1,7 +1,25 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { mount } from '@vue/test-utils';
 import TerminalToolbar from './components/terminal-toolbar.vue';
 import TerminalMobileBar from './components/terminal-mobile-bar.vue';
+import TerminalPage from './terminal-page.vue';
+
+beforeAll(() => {
+  window.focus = vi.fn();
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }))
+  });
+});
 
 describe('TerminalToolbar Component', () => {
   it('renders correct status text based on connectionState prop', async () => {
@@ -138,5 +156,56 @@ describe('TerminalMobileBar Component', () => {
 
     await altBtn.trigger('mousedown');
     expect(wrapper.emitted('toggle-alt')).toBeTruthy();
+  });
+});
+
+describe('TerminalPage Component', () => {
+  it('initializes and schedules focus on mount', async () => {
+    const focusSpy = vi.fn();
+    const wrapper = mount(TerminalPage, {
+      attachTo: document.body,
+      global: {
+        stubs: {
+          TerminalToolbar: true,
+          TerminalMobileBar: true
+        }
+      }
+    });
+
+    const vm = wrapper.vm as any;
+    if (vm.term) {
+      vm.term.focus = focusSpy;
+    }
+
+    vm.focusTerminal();
+    expect(focusSpy).toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it('triggers terminal focus on window focus event and page click', async () => {
+    const wrapper = mount(TerminalPage, {
+      attachTo: document.body,
+      global: {
+        stubs: {
+          TerminalToolbar: true,
+          TerminalMobileBar: true
+        }
+      }
+    });
+
+    // Wait for initial scheduled ticks to settle
+    await wrapper.vm.$nextTick();
+
+    const vm = wrapper.vm as any;
+    const focusTerminalSpy = vi.spyOn(vm, 'focusTerminal');
+
+    window.dispatchEvent(new Event('focus'));
+    expect(focusTerminalSpy).toHaveBeenCalledTimes(1);
+
+    await wrapper.find('.terminal-page').trigger('click');
+    expect(focusTerminalSpy).toHaveBeenCalledTimes(2);
+
+    wrapper.unmount();
   });
 });

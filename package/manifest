@@ -1,5 +1,5 @@
 appname=terminal
-version=1.0.9
+version=1.0.10
 display_name=终端
 desc=专为 fnOS 打造的极速免配置终端，深度集成系统原生鉴权与 FN Connect，无需开放 SSH 端口，移动端丝滑掌控。
 platform=x86
